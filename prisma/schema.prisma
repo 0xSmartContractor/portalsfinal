@@ -1,0 +1,126 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Organization {
+  id          String      @id @default(cuid())
+  name        String
+  plan        String      @default("basic") // basic, pro, enterprise
+  locations   Location[]
+  users       User[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([name])
+}
+
+model Location {
+  id              String           @id @default(cuid())
+  name            String
+  address         String
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  users           User[]          // Staff assigned to this location
+  shifts          Shift[]
+  tables          Table[]
+  sections        TableSection[]
+  operatingHours  OperatingHours[]
+  waitingParties  WaitingParty[]
+  reservations    TableReservation[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([organizationId])
+}
+
+model User {
+  id              String           @id @default(cuid())
+  name            String
+  email           String           @unique
+  password        String
+  role            Role            @default(EMPLOYEE)
+  position        String
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  locations       Location[]      // User can work at multiple locations
+  shifts          Shift[]
+  availability    Availability[]
+  timeOffRequests TimeOffRequest[]
+  messages        Message[]
+  tipEntries      TipEntry[]
+  assignedTables  Table[]         @relation("AssignedTables")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([organizationId, email])
+}
+
+// ... (previous enums remain the same)
+
+model Shift {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  locationId  String
+  location    Location     @relation(fields: [locationId], references: [id])
+  date        DateTime
+  startTime   String
+  endTime     String
+  status      ShiftStatus  @default(SCHEDULED)
+  trades      ShiftTrade[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([userId, locationId, date])
+}
+
+// ... (other models remain similar, adding locationId where relevant)
+
+model TableSection {
+  id          String    @id @default(cuid())
+  name        String
+  color       String
+  locationId  String
+  location    Location  @relation(fields: [locationId], references: [id])
+  tables      Table[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([locationId])
+}
+
+model Table {
+  id            String        @id @default(cuid())
+  number        Int
+  seats         Int
+  status        TableStatus   @default(AVAILABLE)
+  shape         String        @default("rectangle")
+  width         Int          @default(100)
+  height        Int          @default(100)
+  position      Json         // { x: number, y: number }
+  rotation      Int          @default(0)
+  waitTime      Int?
+  locationId    String
+  location      Location     @relation(fields: [locationId], references: [id])
+  sectionId     String?
+  section       TableSection? @relation(fields: [sectionId], references: [id])
+  serverId      String?
+  server        User?        @relation("AssignedTables", fields: [serverId], references: [id])
+  mergedWith    String?
+  customPath    String?
+  reservations  TableReservation[]
+  historicalData TableHistoricalData[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([locationId, status])
+  @@index([locationId, sectionId])
+}
+
+// Update seed file to include organization and location data
